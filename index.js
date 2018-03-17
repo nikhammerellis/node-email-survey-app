@@ -1,35 +1,30 @@
 const express = require('express'); //common js module syntax, only module syntax node supports
 //import express from 'express'; <- this wont work, this is ES2015 Modules and is not supported in Node (works in React)
+const mongoose = require('mongoose');
+const cookieSession = require('cookie-session');
 const passport = require('passport');
-const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const keys = require('./config/keys');
+require('./models/User');
+require('./services/passport');
 
+//connect to the database
+mongoose.connect(keys.mongoURI);
+
+//initialize the app
 const app = express();
 
-passport.use(
-  new GoogleStrategy(
-    {
-      clientID: keys.googleClientID,
-      clientSecret: keys.googleClientSecret,
-      callbackURL: '/auth/google/callback'
-    },
-    (accessToken, refreshToken, profile, done) => {
-      console.log('accessToken: ', accessToken);
-      console.log('refreshToken: ', refreshToken);
-      console.log('profile: ', profile);
-    }
-  )
-);
-
-app.get(
-  '/auth/google',
-  passport.authenticate('google', {
-    //^the GoogleStrategy has this 'google' string internally
-    scope: ['profile', 'email']
+//middleware
+app.use(
+  cookieSession({
+    maxAge: 30 * 24 * 60 * 60 * 1000, //30 days in milliseconds
+    keys: [keys.cookieKey]
   })
 );
+app.use(passport.initialize());
+app.use(passport.session());
 
-app.get('/auth/google/callback', passport.authenticate('google'));
+//routes
+require('./routes/authRoutes')(app);
 
 const PORT = process.env.PORT || 5000; //use env.PORT for heroku dynamic port binding
 app.listen(PORT);
